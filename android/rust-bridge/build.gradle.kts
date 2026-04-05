@@ -19,7 +19,7 @@ android {
     }
 
     kotlin {
-        jvmToolchain(17)
+        jvmToolchain(21)
     }
 }
 
@@ -50,22 +50,34 @@ val buildRustLibrary by tasks.registering(Exec::class) {
     outputs.dir(jniLibsDir)
 }
 
-// D-04: Regenerate Kotlin bindings from compiled .so on every Rust build
+// Build host .so for UniFFI binding generation (cross-compiled .so lacks metadata)
+val buildHostLibrary by tasks.registering(Exec::class) {
+    group = "rust"
+    description = "Builds host .so for UniFFI binding generation"
+    workingDir(cargoDir)
+    commandLine("cargo", "build", "-p", "pktap-core")
+    inputs.dir(cargoDir.resolve("pktap-core/src"))
+    inputs.file(cargoDir.resolve("pktap-core/Cargo.toml"))
+    outputs.file(cargoDir.resolve("target/debug/libpktap_core.so"))
+}
+
+// D-04: Regenerate Kotlin bindings from host .so on every Rust build
 val generateUniFFIBindings by tasks.registering(Exec::class) {
     group = "rust"
-    description = "Generates Kotlin bindings from compiled .so via uniffi-bindgen"
-    dependsOn(buildRustLibrary)
+    description = "Generates Kotlin bindings from host .so via uniffi-bindgen"
+    dependsOn(buildRustLibrary, buildHostLibrary)
     workingDir(cargoDir)
 
-    // Use x86_64 .so — sufficient for binding generation (all ABIs produce identical bindings)
-    val soPath = file("${jniLibsDir}/x86_64/libpktap_core.so")
+    // Use HOST .so — cross-compiled Android .so doesn't contain UniFFI metadata
+    val soPath = cargoDir.resolve("target/debug/libpktap_core.so")
 
     commandLine(
         "cargo", "run", "--bin", "uniffi-bindgen",
         "generate",
         "--library", soPath.absolutePath,
         "--language", "kotlin",
-        "--out-dir", bindingsOutDir.absolutePath
+        "--out-dir", bindingsOutDir.absolutePath,
+        "--no-format"
     )
     inputs.file(soPath)
     outputs.dir(bindingsOutDir)
