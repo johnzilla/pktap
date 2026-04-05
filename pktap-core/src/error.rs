@@ -15,4 +15,16 @@ pub enum PktapError {
 
     #[error("Serialization failed")]
     SerializationFailed,
+
+    #[error("DHT publish failed")]
+    DhtPublishFailed,
+
+    #[error("DHT resolve failed")]
+    DhtResolveFailed,
+
+    #[error("DHT record is outdated (a newer version exists)")]
+    DhtOutdatedRecord,
+
+    #[error("DHT publish queued (offline)")]
+    DhtPublishQueued,
 }
