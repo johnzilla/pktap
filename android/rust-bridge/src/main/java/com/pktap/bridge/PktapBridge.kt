@@ -2,6 +2,8 @@ package com.pktap.bridge
 
 import uniffi.pktap_core.PktapException
 import uniffi.pktap_core.`decryptAndVerify` as ffiDecryptAndVerify
+import uniffi.pktap_core.`derivePublicKey` as ffiDerivePublicKey
+import uniffi.pktap_core.`deriveMnemonicFromSeed` as ffiDeriveMnemonicFromSeed
 import uniffi.pktap_core.`deriveSharedRecordName` as ffiDeriveSharedRecordName
 import uniffi.pktap_core.`ecdhAndEncrypt` as ffiEcdhAndEncrypt
 import uniffi.pktap_core.`pktapPing` as ffiPktapPing
@@ -101,5 +103,46 @@ object PktapBridge {
             pubKeyA = pubKeyA,
             pubKeyB = pubKeyB
         )
+    }
+
+    /**
+     * Derive a 12-word BIP-39 mnemonic from a 32-byte seed. Zeros seedBytes after FFI call (D-05).
+     *
+     * Uses first 16 bytes of seed as entropy (128-bit → 12 words). The returned mnemonic string
+     * is NOT secret — it is the human-readable backup phrase shown to the user once at first launch.
+     *
+     * @param seedBytes 32-byte seed — ZEROED after this call returns
+     * @return Space-separated 12-word BIP-39 mnemonic string
+     * @throws PktapException.InvalidKey if seed is not exactly 32 bytes
+     * @throws PktapException.SerializationFailed if mnemonic generation fails unexpectedly
+     */
+    @Throws(PktapException::class)
+    fun deriveMnemonicFromSeed(seedBytes: ByteArray): String {
+        try {
+            return ffiDeriveMnemonicFromSeed(seedBytes = seedBytes)
+        } finally {
+            // D-05: Zero seedBytes immediately — it contained secret material
+            seedBytes.fill(0)
+        }
+    }
+
+    /**
+     * Derive the Ed25519 public key from a 32-byte seed. Zeros seedBytes after FFI call (D-05).
+     *
+     * The returned 32-byte public key is NOT secret — cache it in AppViewModel (D-06).
+     * Do NOT zero the returned ByteArray.
+     *
+     * @param seedBytes 32-byte seed — ZEROED after this call returns
+     * @return 32-byte Ed25519 public key
+     * @throws PktapException.InvalidKey if seed is not exactly 32 bytes
+     */
+    @Throws(PktapException::class)
+    fun derivePublicKey(seedBytes: ByteArray): ByteArray {
+        try {
+            return ffiDerivePublicKey(seedBytes = seedBytes)
+        } finally {
+            // D-05: Zero seedBytes immediately — it contained secret material
+            seedBytes.fill(0)
+        }
     }
 }

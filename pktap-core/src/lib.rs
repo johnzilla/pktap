@@ -8,5 +8,6 @@ pub mod signing;
 pub mod record;
 pub mod ffi;
 pub mod dht;
+pub mod mnemonic;
 
 pub use error::PktapError;

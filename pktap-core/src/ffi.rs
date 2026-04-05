@@ -2,10 +2,11 @@
 // These are the ONLY functions that cross the UniFFI boundary.
 // No secret material appears in any function signature.
 
+use ed25519_dalek::SigningKey;
 use zeroize::Zeroize;
 
 use crate::error::PktapError;
-use crate::{cipher, ecdh, record, signing};
+use crate::{cipher, ecdh, mnemonic, record, signing};
 
 /// Hello-world function for pipeline smoke test (Phase 3 / FFI-02).
 /// Returns "pktap-ok" to confirm the Rust->Kotlin FFI channel is live.
@@ -177,6 +178,50 @@ pub fn derive_shared_record_name(
         .map_err(|_| PktapError::InvalidKey)?;
 
     Ok(record::shared_record_name(&key_a, &key_b))
+}
+
+/// Derive a 12-word BIP-39 mnemonic from a 32-byte seed.
+///
+/// Uses the first 16 bytes of `seed_bytes` as entropy (128-bit → 12 words per D-03).
+/// The seed array is zeroed before this function returns (T-04-06).
+///
+/// # Errors
+/// - `PktapError::InvalidKey` — seed_bytes is not exactly 32 bytes.
+/// - `PktapError::SerializationFailed` — mnemonic generation failed (should not occur).
+#[uniffi::export]
+pub fn derive_mnemonic_from_seed(seed_bytes: Vec<u8>) -> Result<String, PktapError> {
+    if seed_bytes.len() != 32 {
+        return Err(PktapError::InvalidKey);
+    }
+    let mut seed: [u8; 32] = seed_bytes
+        .as_slice()
+        .try_into()
+        .map_err(|_| PktapError::InvalidKey)?;
+    let result = mnemonic::mnemonic_from_entropy(&seed);
+    seed.zeroize();
+    result
+}
+
+/// Derive the Ed25519 public key from a 32-byte seed.
+///
+/// Returns a 32-byte Ed25519 verifying key. The seed array is zeroed before
+/// this function returns (T-04-06).
+///
+/// # Errors
+/// - `PktapError::InvalidKey` — seed_bytes is not exactly 32 bytes.
+#[uniffi::export]
+pub fn derive_public_key(seed_bytes: Vec<u8>) -> Result<Vec<u8>, PktapError> {
+    if seed_bytes.len() != 32 {
+        return Err(PktapError::InvalidKey);
+    }
+    let mut seed: [u8; 32] = seed_bytes
+        .as_slice()
+        .try_into()
+        .map_err(|_| PktapError::InvalidKey)?;
+    let signing_key = SigningKey::from_bytes(&seed);
+    let pubkey = signing_key.verifying_key().to_bytes().to_vec();
+    seed.zeroize();
+    Ok(pubkey)
 }
 
 #[cfg(test)]
@@ -518,5 +563,79 @@ mod tests {
             "Wrong-length key must return InvalidKey, got {:?}",
             result
         );
+    }
+
+    // -----------------------------------------------------------------------
+    // derive_mnemonic_from_seed tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_derive_mnemonic_from_seed_returns_12_words() {
+        let seed = vec![0x01u8; 32];
+        let result = derive_mnemonic_from_seed(seed);
+        assert!(result.is_ok(), "Valid 32-byte seed should succeed: {:?}", result);
+        let mnemonic = result.unwrap();
+        let words: Vec<&str> = mnemonic.split(' ').collect();
+        assert_eq!(words.len(), 12, "Must return exactly 12 words, got {}", words.len());
+    }
+
+    #[test]
+    fn test_derive_mnemonic_from_seed_is_deterministic() {
+        let seed = vec![0xABu8; 32];
+        let m1 = derive_mnemonic_from_seed(seed.clone()).expect("first call");
+        let m2 = derive_mnemonic_from_seed(seed).expect("second call");
+        assert_eq!(m1, m2, "Same seed must produce same mnemonic");
+    }
+
+    #[test]
+    fn test_derive_mnemonic_from_seed_wrong_length_returns_invalid_key() {
+        let short_seed = vec![0x01u8; 16]; // 16 bytes instead of 32
+        let result = derive_mnemonic_from_seed(short_seed);
+        assert!(
+            matches!(result, Err(PktapError::InvalidKey)),
+            "Wrong-length seed must return InvalidKey, got {:?}",
+            result
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // derive_public_key tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn test_derive_public_key_returns_32_bytes() {
+        let seed = vec![0x01u8; 32];
+        let result = derive_public_key(seed);
+        assert!(result.is_ok(), "Valid 32-byte seed should succeed: {:?}", result);
+        let pubkey = result.unwrap();
+        assert_eq!(pubkey.len(), 32, "Must return 32 bytes, got {}", pubkey.len());
+    }
+
+    #[test]
+    fn test_derive_public_key_is_deterministic() {
+        let seed = vec![0x42u8; 32];
+        let pk1 = derive_public_key(seed.clone()).expect("first call");
+        let pk2 = derive_public_key(seed).expect("second call");
+        assert_eq!(pk1, pk2, "Same seed must produce same public key");
+    }
+
+    #[test]
+    fn test_derive_public_key_wrong_length_returns_invalid_key() {
+        let short_seed = vec![0x01u8; 16];
+        let result = derive_public_key(short_seed);
+        assert!(
+            matches!(result, Err(PktapError::InvalidKey)),
+            "Wrong-length seed must return InvalidKey, got {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_derive_public_key_matches_dalek_verifying_key() {
+        use ed25519_dalek::SigningKey;
+        let seed_bytes = [0x77u8; 32];
+        let expected = SigningKey::from_bytes(&seed_bytes).verifying_key().to_bytes().to_vec();
+        let result = derive_public_key(seed_bytes.to_vec()).expect("should succeed");
+        assert_eq!(result, expected, "derive_public_key must match ed25519_dalek verifying key");
     }
 }

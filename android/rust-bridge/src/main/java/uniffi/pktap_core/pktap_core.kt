@@ -637,6 +637,10 @@ internal object IntegrityCheckingUniffiLib {
     }
     external fun uniffi_pktap_core_checksum_func_decrypt_and_verify(
     ): Short
+    external fun uniffi_pktap_core_checksum_func_derive_mnemonic_from_seed(
+    ): Short
+    external fun uniffi_pktap_core_checksum_func_derive_public_key(
+    ): Short
     external fun uniffi_pktap_core_checksum_func_derive_shared_record_name(
     ): Short
     external fun uniffi_pktap_core_checksum_func_ecdh_and_encrypt(
@@ -657,6 +661,10 @@ internal object UniffiLib {
         
     }
     external fun uniffi_pktap_core_fn_func_decrypt_and_verify(`ourSeedBytes`: RustBuffer.ByValue,`peerEd25519Public`: RustBuffer.ByValue,`peerEd25519Signature`: RustBuffer.ByValue,`recordBytes`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_pktap_core_fn_func_derive_mnemonic_from_seed(`seedBytes`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_pktap_core_fn_func_derive_public_key(`seedBytes`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     external fun uniffi_pktap_core_fn_func_derive_shared_record_name(`pubKeyA`: RustBuffer.ByValue,`pubKeyB`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -784,6 +792,12 @@ private fun uniffiCheckContractApiVersion(lib: IntegrityCheckingUniffiLib) {
 @Suppress("UNUSED_PARAMETER")
 private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if (lib.uniffi_pktap_core_checksum_func_decrypt_and_verify() != 27155.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_pktap_core_checksum_func_derive_mnemonic_from_seed() != 42642.toShort()) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if (lib.uniffi_pktap_core_checksum_func_derive_public_key() != 3294.toShort()) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if (lib.uniffi_pktap_core_checksum_func_derive_shared_record_name() != 16768.toShort()) {
@@ -1161,6 +1175,47 @@ public object FfiConverterTypePktapError : FfiConverterRustBuffer<PktapException
     UniffiLib.uniffi_pktap_core_fn_func_decrypt_and_verify(
     
         FfiConverterByteArray.lower(`ourSeedBytes`),FfiConverterByteArray.lower(`peerEd25519Public`),FfiConverterByteArray.lower(`peerEd25519Signature`),FfiConverterByteArray.lower(`recordBytes`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * Derive a 12-word BIP-39 mnemonic from a 32-byte seed.
+         *
+         * Uses the first 16 bytes of `seed_bytes` as entropy (128-bit → 12 words per D-03).
+         * The seed array is zeroed before this function returns (T-04-06).
+         *
+         * # Errors
+         * - `PktapError::InvalidKey` — seed_bytes is not exactly 32 bytes.
+         * - `PktapError::SerializationFailed` — mnemonic generation failed (should not occur).
+         */
+    @Throws(PktapException::class) fun `deriveMnemonicFromSeed`(`seedBytes`: kotlin.ByteArray): kotlin.String {
+            return FfiConverterString.lift(
+    uniffiRustCallWithError(PktapException) { _status ->
+    UniffiLib.uniffi_pktap_core_fn_func_derive_mnemonic_from_seed(
+    
+        FfiConverterByteArray.lower(`seedBytes`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * Derive the Ed25519 public key from a 32-byte seed.
+         *
+         * Returns a 32-byte Ed25519 verifying key. The seed array is zeroed before
+         * this function returns (T-04-06).
+         *
+         * # Errors
+         * - `PktapError::InvalidKey` — seed_bytes is not exactly 32 bytes.
+         */
+    @Throws(PktapException::class) fun `derivePublicKey`(`seedBytes`: kotlin.ByteArray): kotlin.ByteArray {
+            return FfiConverterByteArray.lift(
+    uniffiRustCallWithError(PktapException) { _status ->
+    UniffiLib.uniffi_pktap_core_fn_func_derive_public_key(
+    
+        FfiConverterByteArray.lower(`seedBytes`),_status)
 }
     )
     }
