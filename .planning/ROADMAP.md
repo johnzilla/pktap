@@ -80,8 +80,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — Rust FFI exports (derive_public_key, derive_mnemonic_from_seed), KeystoreManager with StrongBox/TEE fallback, SeedRepository with encrypted seed storage
-- [ ] 04-02-PLAN.md — Compose Navigation first-launch flow, MnemonicScreen with FLAG_SECURE, AppViewModel pubkey cache, human verification
+- [x] 04-01-PLAN.md — Rust FFI exports (derive_public_key, derive_mnemonic_from_seed), KeystoreManager with StrongBox/TEE fallback, SeedRepository with encrypted seed storage
+- [x] 04-02-PLAN.md — Compose Navigation first-launch flow, MnemonicScreen with FLAG_SECURE, AppViewModel pubkey cache, human verification
 **UI hint**: yes
 
 ### Phase 5: NFC HCE Module
