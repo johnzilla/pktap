@@ -69,19 +69,19 @@ Plans:
 - [x] 03-02-PLAN.md — PktapBridge.kt wrapper + FFI-02 hello-world instrumented test
 
 ### Phase 4: Android Keystore Module
-**Goal**: The app generates hardware-backed keys on first launch, seals the HKDF seed in EncryptedSharedPreferences, displays the BIP-39 mnemonic, and handles StrongBox/TEE fallback transparently across all supported device types
+**Goal**: The app generates hardware-backed keys on first launch, encrypts the HKDF seed with a Keystore AES key stored in SharedPreferences, displays the BIP-39 mnemonic, and handles StrongBox/TEE fallback transparently across all supported device types
 **Depends on**: Phase 3
 **Requirements**: KEY-01, KEY-02, KEY-03, KEY-04, KEY-05
 **Success Criteria** (what must be TRUE):
   1. On first launch, the app generates an Ed25519 keypair and AES-256-GCM key in the Android Keystore — both non-extractable — without crashing on a device without StrongBox (emulator is acceptable for TEE path)
-  2. The BIP-39 mnemonic screen displays 12/24 words and cannot be bypassed — it is shown at first launch and the words are never written to a log
+  2. The BIP-39 mnemonic screen displays 12 words and cannot be bypassed — it is shown at first launch and the words are never written to a log
   3. The HKDF seed survives an app restart — unseal with the Keystore AES key returns the same 32 bytes
   4. On a device without StrongBox, key generation falls back to TEE silently — no error is shown to the user
-**Plans**: 2 plans
+**Plans:** 2 plans
 
 Plans:
-- [x] 03-01-PLAN.md — Android project scaffold + cargo-ndk/uniffi-bindgen build pipeline
-- [x] 03-02-PLAN.md — PktapBridge.kt wrapper + FFI-02 hello-world instrumented test
+- [ ] 04-01-PLAN.md — Rust FFI exports (derive_public_key, derive_mnemonic_from_seed), KeystoreManager with StrongBox/TEE fallback, SeedRepository with encrypted seed storage
+- [ ] 04-02-PLAN.md — Compose Navigation first-launch flow, MnemonicScreen with FLAG_SECURE, AppViewModel pubkey cache, human verification
 **UI hint**: yes
 
 ### Phase 5: NFC HCE Module
@@ -93,11 +93,7 @@ Plans:
   2. The `processCommandApdu()` method contains no crypto calls, no Rust FFI calls, and no network I/O — returns pre-cached payload within 300ms
   3. SELECT AID is handled correctly — NFC routing works on a Samsung device without requiring any manual AID configuration
   4. Post-tap operations (ECDH, encryption, DHT publish) run in a background coroutine that launches after `onDeactivated()`, not inside the APDU handler
-**Plans**: 2 plans
-
-Plans:
-- [x] 03-01-PLAN.md — Android project scaffold + cargo-ndk/uniffi-bindgen build pipeline
-- [ ] 03-02-PLAN.md — PktapBridge.kt wrapper + FFI-02 hello-world instrumented test
+**Plans**: TBD
 
 ### Phase 6: App Integration + Core UI
 **Goal**: A user can complete the full PKTap flow end-to-end: set up a profile, tap phones with another PKTap user, see a decrypted contact preview, save the contact, and view it in a contact list — all encrypted, all without a server
@@ -109,11 +105,7 @@ Plans:
   3. A user can save a received contact, find it in the contact list, see its TTL expiry label, and manually refresh it from DHT
   4. When the DHT publish is queued offline, the app shows a "pending sync" indicator and completes the publish when connectivity returns
   5. NFC errors show an actionable message ("Hold phones back-to-back") — no silent failures
-**Plans**: 2 plans
-
-Plans:
-- [ ] 03-01-PLAN.md — Android project scaffold + cargo-ndk/uniffi-bindgen build pipeline
-- [ ] 03-02-PLAN.md — PktapBridge.kt wrapper + FFI-02 hello-world instrumented test
+**Plans**: TBD
 **UI hint**: yes
 
 ### Phase 7: QR Fallback + Public Mode
@@ -125,11 +117,7 @@ Plans:
   2. The QR scan of a non-PKTap code does not expose any contact data — it resolves to a web URL only
   3. A user who opts into Public Mode can have their contact info resolved by any app given their public key, without the two users having tapped first
   4. Public mode records auto-republish before the 7-day TTL expires — user never needs to manually re-publish to stay discoverable
-**Plans**: 2 plans
-
-Plans:
-- [ ] 03-01-PLAN.md — Android project scaffold + cargo-ndk/uniffi-bindgen build pipeline
-- [ ] 03-02-PLAN.md — PktapBridge.kt wrapper + FFI-02 hello-world instrumented test
+**Plans**: TBD
 **UI hint**: yes
 
 ## Progress
@@ -139,10 +127,10 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Rust Crypto Core | 0/3 | Planned | - |
-| 2. Pkarr DHT Integration | 0/2 | Planned | - |
-| 3. UniFFI Bridge + Android Build | 0/TBD | Not started | - |
-| 4. Android Keystore Module | 0/TBD | Not started | - |
+| 1. Rust Crypto Core | 3/3 | Complete | - |
+| 2. Pkarr DHT Integration | 2/2 | Complete | - |
+| 3. UniFFI Bridge + Android Build | 2/2 | Complete | - |
+| 4. Android Keystore Module | 0/2 | Planned | - |
 | 5. NFC HCE Module | 0/TBD | Not started | - |
 | 6. App Integration + Core UI | 0/TBD | Not started | - |
 | 7. QR Fallback + Public Mode | 0/TBD | Not started | - |
