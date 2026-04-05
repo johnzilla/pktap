@@ -24,9 +24,7 @@ import kotlinx.coroutines.launch
  */
 class MnemonicViewModel(private val seedRepository: SeedRepository) : ViewModel() {
 
-    private companion object {
-        const val TAG = "MnemonicViewModel"
-    }
+    private val tag = "MnemonicViewModel"
 
     private val _words = MutableStateFlow<List<String>>(emptyList())
     val words: StateFlow<List<String>> = _words.asStateFlow()
@@ -50,10 +48,10 @@ class MnemonicViewModel(private val seedRepository: SeedRepository) : ViewModel(
                     // Zero the original seed — copyOf() was passed to bridge which zeros that copy
                     seed.fill(0)
                 }
-                Log.d(TAG, "Mnemonic derived")  // No word values logged (T-04-09)
+                Log.d(tag, "Mnemonic derived")  // No word values logged (T-04-09)
                 _words.value = mnemonic.split(" ")
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to derive mnemonic: ${e.javaClass.simpleName}")
+                Log.e(tag, "Failed to derive mnemonic: ${e.javaClass.simpleName}")
                 _words.value = emptyList()
             } finally {
                 _isLoading.value = false
@@ -67,7 +65,7 @@ class MnemonicViewModel(private val seedRepository: SeedRepository) : ViewModel(
      */
     fun acknowledge() {
         seedRepository.setMnemonicAcknowledged()
-        Log.d(TAG, "Mnemonic acknowledged")
+        Log.d(tag, "Mnemonic acknowledged")
     }
 
     companion object {

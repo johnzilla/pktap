@@ -25,9 +25,7 @@ import kotlinx.coroutines.launch
  */
 class AppViewModel(private val seedRepository: SeedRepository) : ViewModel() {
 
-    private companion object {
-        const val TAG = "AppViewModel"
-    }
+    private val tag = "AppViewModel"
 
     private val _publicKeyHex = MutableStateFlow("")
     val publicKeyHex: StateFlow<String> = _publicKeyHex.asStateFlow()
@@ -39,7 +37,7 @@ class AppViewModel(private val seedRepository: SeedRepository) : ViewModel() {
     init {
         viewModelScope.launch(Dispatchers.IO) {
             if (!seedRepository.hasSeed()) {
-                Log.d(TAG, "No seed yet — public key will be derived after first-launch setup")
+                Log.d(tag, "No seed yet — public key will be derived after first-launch setup")
                 return@launch
             }
             try {
@@ -52,9 +50,9 @@ class AppViewModel(private val seedRepository: SeedRepository) : ViewModel() {
                 }
                 _publicKeyBytes = pubKey
                 _publicKeyHex.value = pubKey.joinToString("") { "%02x".format(it) }
-                Log.d(TAG, "Public key derived and cached")
+                Log.d(tag, "Public key derived and cached")
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to derive public key: ${e.javaClass.simpleName}")
+                Log.e(tag, "Failed to derive public key: ${e.javaClass.simpleName}")
             }
         }
     }
