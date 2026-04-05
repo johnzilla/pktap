@@ -51,8 +51,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — DhtClient core: pkarr dependency, error types, encrypted publish/resolve with integration tests
-- [ ] 02-02-PLAN.md — Offline queue with exponential backoff, public mode publish/resolve, TTL tracking and republish API
+- [x] 02-01-PLAN.md — DhtClient core: pkarr dependency, error types, encrypted publish/resolve with integration tests
+- [x] 02-02-PLAN.md — Offline queue with exponential backoff, public mode publish/resolve, TTL tracking and republish API
 
 ### Phase 3: UniFFI Bridge + Android Build
 **Goal**: The Rust pktap-core builds as an .aar, Kotlin bindings are generated and importable, and a hello-world FFI call proves the pipeline before any real crypto is wired through it
