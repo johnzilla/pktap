@@ -12,7 +12,9 @@ Two people tap phones and instantly see each other's chosen contact info — enc
 
 ### Validated
 
-(None yet — ship to validate)
+- [x] Ed25519 to X25519 conversion, ECDH key agreement, KDF to derive encryption key (all in Rust) — Validated in Phase 1: Rust Crypto Core
+- [x] XChaCha20-Poly1305 encryption of selected contact fields with Ed25519 signature (Rust) — Validated in Phase 1: Rust Crypto Core
+- [x] Memory zeroing (zeroize crate) on all secret material in Rust; zero ByteArrays after FFI calls in Kotlin — Validated in Phase 1: Rust Crypto Core (Rust side)
 
 ### Active
 
@@ -22,8 +24,8 @@ Two people tap phones and instantly see each other's chosen contact info — enc
 - [ ] Show BIP-39 mnemonic at first launch for seed backup/recovery
 - [ ] Create a default contact profile with name and selectable contact fields
 - [ ] Bidirectional NFC key exchange via HCE — both phones swap 32-byte Ed25519 public keys (36-byte NDEF payload with version + flags + CRC-16)
-- [ ] Ed25519 to X25519 conversion, ECDH key agreement, KDF to derive encryption key (all in Rust)
-- [ ] XChaCha20-Poly1305 encryption of selected contact fields with Ed25519 signature (Rust)
+- [x] Ed25519 to X25519 conversion, ECDH key agreement, KDF to derive encryption key (all in Rust)
+- [x] XChaCha20-Poly1305 encryption of selected contact fields with Ed25519 signature (Rust)
 - [ ] Publish signed encrypted record to DHT at deterministic address `_pktap._share.<SHA-256(sort(A_pk, B_pk))>`
 - [ ] Resolve encrypted record from DHT, verify signature, decrypt, display contact preview
 - [ ] Full bidirectional round-trip: tap -> both phones show each other's selected contact fields
@@ -34,7 +36,7 @@ Two people tap phones and instantly see each other's chosen contact info — enc
 - [ ] Public mode as opt-in alternative — plaintext DNS TXT records on DHT under `_pktap.` prefixed names
 - [ ] QR code display and scan as NFC fallback — `pktap://pk/<base32-pubkey>?mode=enc`
 - [ ] QR async handshake: Bob publishes encrypted key to `_pktap._handshake.<SHA-256(Alice_PK)>`, Alice polls every 2s for up to 5 minutes
-- [ ] Memory zeroing (zeroize crate) on all secret material in Rust; zero ByteArrays after FFI calls in Kotlin
+- [x] Memory zeroing (zeroize crate) on all secret material in Rust — Validated in Phase 1 (Rust side); Kotlin ByteArray zeroing pending Phase 3+
 
 ### Out of Scope
 
