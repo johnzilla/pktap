@@ -7,6 +7,13 @@ use zeroize::Zeroize;
 use crate::error::PktapError;
 use crate::{cipher, ecdh, record, signing};
 
+/// Hello-world function for pipeline smoke test (Phase 3 / FFI-02).
+/// Returns "pktap-ok" to confirm the Rust->Kotlin FFI channel is live.
+#[uniffi::export]
+pub fn pktap_ping() -> String {
+    "pktap-ok".to_string()
+}
+
 /// Perform ECDH key agreement, derive an encryption key, and encrypt the contact fields JSON.
 ///
 /// This is the primary encrypt entry point across the UniFFI boundary.
