@@ -1,6 +1,4 @@
 use ed25519_dalek::VerifyingKey;
-use hkdf::Hkdf;
-use sha2::Sha256;
 use zeroize::ZeroizeOnDrop;
 
 use crate::error::PktapError;
@@ -46,19 +44,31 @@ pub(crate) fn ed25519_pub_to_x25519_pub(vk: &VerifyingKey) -> x25519_dalek::Publ
     x25519_dalek::PublicKey::from(montgomery.to_bytes())
 }
 
-/// Derive an X25519 scalar (private key) from a 32-byte HKDF seed.
+/// Derive an X25519 scalar (private key) from a 32-byte seed.
 ///
 /// Per D-03: Android Keystore generates the master Ed25519 keypair (non-extractable).
-/// Rust receives the HKDF seed bytes (encrypted by Keystore AES key, decrypted on
-/// Kotlin side before FFI call). The X25519 private key is derived from the seed
-/// using HKDF-SHA256 with a fixed info string to provide domain separation.
+/// Rust receives the seed bytes which are the raw Ed25519 scalar bytes obtained from
+/// `signing_key.to_scalar_bytes()` on the Kotlin side (the first 32 bytes of SHA-512
+/// of the Ed25519 private key seed, pre-clamped by the caller or clamped here).
+///
+/// # Why direct clamping (not HKDF)
+/// The X25519 scalar MUST correspond to the same private key whose Ed25519 public key
+/// will be presented as `peer_ed25519_public` for ECDH. Using
+/// `ed25519_dalek::SigningKey::to_scalar_bytes()` as input and clamping it to the
+/// Curve25519 scalar field is the canonical approach: the resulting X25519 public key
+/// equals `signing_key.verifying_key().to_montgomery()`. Any additional HKDF transform
+/// would break this binding and make ECDH non-symmetric between two peers who both use
+/// this same code path.
+///
+/// Clamping: Curve25519 requires the three low bits of byte[0] cleared, the high bit of
+/// byte[31] cleared, and the second-highest bit of byte[31] set. This is idempotent —
+/// already-clamped scalars are unchanged.
 pub(crate) fn seed_to_x25519_scalar(seed: &[u8; 32]) -> X25519ScalarBytes {
-    let hk = Hkdf::<Sha256>::new(None, seed);
-    let mut scalar_bytes = [0u8; 32];
-    // Unwrap is safe: HKDF-SHA256 expand with 32-byte output length always succeeds.
-    hk.expand(b"pktap-v1-x25519", &mut scalar_bytes)
-        .expect("HKDF expand with 32 bytes always succeeds");
-    X25519ScalarBytes(scalar_bytes)
+    // Clamp the seed bytes to produce a valid Curve25519 scalar.
+    // x25519-dalek's StaticSecret::from([u8; 32]) applies clamping automatically,
+    // so returning the raw bytes here is safe — the caller always constructs
+    // StaticSecret::from(scalar.0), which clamps on construction.
+    X25519ScalarBytes(*seed)
 }
 
 #[cfg(test)]
