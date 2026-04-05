@@ -14,7 +14,7 @@ First-launch key generation and seed management on Android. Generates AES-256-GC
 ## Implementation Decisions
 
 ### Key Generation & Storage
-- **D-01:** Ed25519 master keypair derived from HKDF seed in Rust (not stored in Keystore directly — Android Keystore doesn't support Ed25519). Generate random 32-byte seed, encrypt with Keystore AES-256-GCM key, store in EncryptedSharedPreferences. When needed, decrypt and pass to Rust which derives Ed25519 via ed25519-dalek. Keystore protects the seed at rest.
+- **D-01:** Ed25519 master keypair derived from HKDF seed in Rust (not stored in Keystore directly — Android Keystore doesn't support Ed25519). Generate random 32-byte seed, encrypt with direct Keystore AES-256-GCM Cipher, store encrypted bytes in plain SharedPreferences. EncryptedSharedPreferences was deprecated June 2025 — direct Keystore+Cipher provides identical security without the deprecated dependency. When needed, decrypt and pass to Rust which derives Ed25519 via ed25519-dalek. Keystore protects the seed at rest.
 - **D-02:** Try StrongBox first, silent TEE fallback. Attempt `KeyGenParameterSpec.Builder().setIsStrongBoxBacked(true)`. Catch `StrongBoxUnavailableException`, retry without the flag. User never sees the difference. Log which path was used for diagnostics.
 
 ### BIP-39 Mnemonic UX
