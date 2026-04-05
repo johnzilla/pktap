@@ -125,64 +125,64 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| KEY-01 | Pending | Pending |
-| KEY-02 | Pending | Pending |
-| KEY-03 | Pending | Pending |
-| KEY-04 | Pending | Pending |
-| KEY-05 | Pending | Pending |
-| KEY-06 | Pending | Pending |
-| CRYPTO-01 | Pending | Pending |
-| CRYPTO-02 | Pending | Pending |
-| CRYPTO-03 | Pending | Pending |
-| CRYPTO-04 | Pending | Pending |
-| CRYPTO-05 | Pending | Pending |
-| CRYPTO-06 | Pending | Pending |
-| CRYPTO-07 | Pending | Pending |
-| DHT-01 | Pending | Pending |
-| DHT-02 | Pending | Pending |
-| DHT-03 | Pending | Pending |
-| DHT-04 | Pending | Pending |
-| DHT-05 | Pending | Pending |
-| DHT-06 | Pending | Pending |
-| DHT-07 | Pending | Pending |
-| DHT-08 | Pending | Pending |
-| NFC-01 | Pending | Pending |
-| NFC-02 | Pending | Pending |
-| NFC-03 | Pending | Pending |
-| NFC-04 | Pending | Pending |
-| NFC-05 | Pending | Pending |
-| NFC-06 | Pending | Pending |
-| QR-01 | Pending | Pending |
-| QR-02 | Pending | Pending |
-| QR-03 | Pending | Pending |
-| QR-04 | Pending | Pending |
-| QR-05 | Pending | Pending |
-| QR-06 | Pending | Pending |
-| PROF-01 | Pending | Pending |
-| PROF-02 | Pending | Pending |
-| PROF-03 | Pending | Pending |
-| PROF-04 | Pending | Pending |
-| PROF-05 | Pending | Pending |
-| PROF-06 | Pending | Pending |
-| PROF-07 | Pending | Pending |
-| PROF-08 | Pending | Pending |
-| PUB-01 | Pending | Pending |
-| PUB-02 | Pending | Pending |
-| PUB-03 | Pending | Pending |
-| PUB-04 | Pending | Pending |
-| UX-01 | Pending | Pending |
-| UX-02 | Pending | Pending |
-| UX-03 | Pending | Pending |
-| UX-04 | Pending | Pending |
-| FFI-01 | Pending | Pending |
-| FFI-02 | Pending | Pending |
-| FFI-03 | Pending | Pending |
+| KEY-01 | Phase 4 | Pending |
+| KEY-02 | Phase 4 | Pending |
+| KEY-03 | Phase 4 | Pending |
+| KEY-04 | Phase 4 | Pending |
+| KEY-05 | Phase 4 | Pending |
+| KEY-06 | Phase 1 | Pending |
+| CRYPTO-01 | Phase 1 | Pending |
+| CRYPTO-02 | Phase 1 | Pending |
+| CRYPTO-03 | Phase 1 | Pending |
+| CRYPTO-04 | Phase 1 | Pending |
+| CRYPTO-05 | Phase 1 | Pending |
+| CRYPTO-06 | Phase 1 | Pending |
+| CRYPTO-07 | Phase 1 | Pending |
+| DHT-01 | Phase 2 | Pending |
+| DHT-02 | Phase 2 | Pending |
+| DHT-03 | Phase 2 | Pending |
+| DHT-04 | Phase 2 | Pending |
+| DHT-05 | Phase 2 | Pending |
+| DHT-06 | Phase 2 | Pending |
+| DHT-07 | Phase 2 | Pending |
+| DHT-08 | Phase 2 | Pending |
+| NFC-01 | Phase 5 | Pending |
+| NFC-02 | Phase 5 | Pending |
+| NFC-03 | Phase 5 | Pending |
+| NFC-04 | Phase 5 | Pending |
+| NFC-05 | Phase 5 | Pending |
+| NFC-06 | Phase 5 | Pending |
+| QR-01 | Phase 7 | Pending |
+| QR-02 | Phase 7 | Pending |
+| QR-03 | Phase 7 | Pending |
+| QR-04 | Phase 7 | Pending |
+| QR-05 | Phase 7 | Pending |
+| QR-06 | Phase 7 | Pending |
+| PROF-01 | Phase 6 | Pending |
+| PROF-02 | Phase 6 | Pending |
+| PROF-03 | Phase 6 | Pending |
+| PROF-04 | Phase 6 | Pending |
+| PROF-05 | Phase 6 | Pending |
+| PROF-06 | Phase 6 | Pending |
+| PROF-07 | Phase 6 | Pending |
+| PROF-08 | Phase 6 | Pending |
+| PUB-01 | Phase 7 | Pending |
+| PUB-02 | Phase 7 | Pending |
+| PUB-03 | Phase 7 | Pending |
+| PUB-04 | Phase 7 | Pending |
+| UX-01 | Phase 6 | Pending |
+| UX-02 | Phase 6 | Pending |
+| UX-03 | Phase 6 | Pending |
+| UX-04 | Phase 6 | Pending |
+| FFI-01 | Phase 3 | Pending |
+| FFI-02 | Phase 3 | Pending |
+| FFI-03 | Phase 3 | Pending |
 
 **Coverage:**
-- v1 requirements: 49 total
-- Mapped to phases: 0
-- Unmapped: 49
+- v1 requirements: 52 total
+- Mapped to phases: 52
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-04*
-*Last updated: 2026-04-04 after initial definition*
+*Last updated: 2026-04-04 after roadmap creation — all 52 requirements mapped*
