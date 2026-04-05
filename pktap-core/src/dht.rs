@@ -17,7 +17,9 @@ use pkarr::{
 
 use std::collections::VecDeque;
 use std::sync::Mutex;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
+use zeroize::Zeroize;
 
 use crate::error::PktapError;
 
@@ -34,6 +36,35 @@ pub const PUBLIC_RECORD_TTL: u32 = 604_800;
 /// Analysis: 1000 (BEP-44 limit) − 12 (DNS header) − ~90 (name + RR overhead
 /// + TXT length-prefix bytes) = ~898. Using 850 as a conservative safe limit.
 pub const MAX_CIPHERTEXT_LEN: usize = 850;
+
+// ── TTL tracking struct ──────────────────────────────────────────────────────
+
+/// Tracks a published record for TTL-based republishing.
+///
+/// The `seed` field is derived key material — it is zeroed when the struct is
+/// dropped (see the manual `Drop` impl below) to satisfy T-02-08.
+struct TrackedRecord {
+    /// The HKDF-derived seed used to sign the record.
+    seed: [u8; 32],
+    /// DNS record name within the packet.
+    record_name: String,
+    /// The raw data (ciphertext or plaintext).
+    data: Vec<u8>,
+    /// TTL in seconds.
+    ttl_secs: u32,
+    /// Unix timestamp (seconds) when the record was last published.
+    published_at: u64,
+    /// Whether this is a public (plaintext) or private (encrypted) record.
+    is_public: bool,
+}
+
+impl Drop for TrackedRecord {
+    fn drop(&mut self) {
+        // Zero the seed bytes on drop to satisfy threat T-02-08.
+        self.seed.zeroize();
+        self.data.zeroize();
+    }
+}
 
 // ── Offline queue structs ────────────────────────────────────────────────────
 
@@ -53,11 +84,14 @@ struct PendingPublish {
 /// for both private (encrypted) and public (plaintext) contact records.
 ///
 /// Includes an offline queue that enqueues records on network failure and
-/// retries them with exponential backoff (capped at 60 seconds).
+/// retries them with exponential backoff (capped at 60 seconds). Also tracks
+/// published records for TTL-based republishing.
 pub struct DhtClient {
     inner: PkarrClient,
     /// Offline publish queue. Items are retried with exponential backoff.
     queue: Mutex<VecDeque<PendingPublish>>,
+    /// Tracks published records for TTL expiry and republishing.
+    tracked: Mutex<Vec<TrackedRecord>>,
 }
 
 impl DhtClient {
@@ -70,6 +104,7 @@ impl DhtClient {
         Ok(Self {
             inner: client,
             queue: Mutex::new(VecDeque::new()),
+            tracked: Mutex::new(Vec::new()),
         })
     }
 
@@ -90,6 +125,7 @@ impl DhtClient {
         Ok(Self {
             inner: client,
             queue: Mutex::new(VecDeque::new()),
+            tracked: Mutex::new(Vec::new()),
         })
     }
 
@@ -120,7 +156,16 @@ impl DhtClient {
             build_signed_packet(hkdf_derived_seed, record_name, ciphertext, PRIVATE_RECORD_TTL)?;
 
         match publish_packet(&self.inner, &signed_packet) {
-            Ok(()) => Ok(keypair.public_key()),
+            Ok(()) => {
+                self.track_record(
+                    hkdf_derived_seed,
+                    record_name,
+                    ciphertext,
+                    PRIVATE_RECORD_TTL,
+                    false,
+                );
+                Ok(keypair.public_key())
+            }
             Err(PktapError::DhtPublishFailed) => {
                 self.enqueue(signed_packet);
                 Err(PktapError::DhtPublishQueued)
@@ -161,7 +206,16 @@ impl DhtClient {
             build_signed_packet(profile_seed, record_name, plaintext, PUBLIC_RECORD_TTL)?;
 
         match publish_packet(&self.inner, &signed_packet) {
-            Ok(()) => Ok(keypair.public_key()),
+            Ok(()) => {
+                self.track_record(
+                    profile_seed,
+                    record_name,
+                    plaintext,
+                    PUBLIC_RECORD_TTL,
+                    true,
+                );
+                Ok(keypair.public_key())
+            }
             Err(PktapError::DhtPublishFailed) => {
                 self.enqueue(signed_packet);
                 Err(PktapError::DhtPublishQueued)
@@ -231,6 +285,63 @@ impl DhtClient {
         flushed
     }
 
+    // ── TTL tracking and republish API ───────────────────────────────────────
+
+    /// Returns the number of tracked published records.
+    pub fn tracked_count(&self) -> usize {
+        self.tracked.lock().expect("tracked mutex poisoned").len()
+    }
+
+    /// Returns the `record_name`s of all tracked records whose TTL window has
+    /// passed before `unix_timestamp`.
+    ///
+    /// A record is considered expiring when `published_at + ttl_secs < unix_timestamp`.
+    /// Phase 6 Android WorkManager calls this to find records that need republishing.
+    pub fn get_records_expiring_before(&self, unix_timestamp: u64) -> Vec<String> {
+        self.tracked
+            .lock()
+            .expect("tracked mutex poisoned")
+            .iter()
+            .filter(|r| r.published_at + (r.ttl_secs as u64) < unix_timestamp)
+            .map(|r| r.record_name.clone())
+            .collect()
+    }
+
+    /// Re-publishes the tracked record with the given `record_name` using a
+    /// fresh BEP-44 sequence number (new microsecond timestamp).
+    ///
+    /// On success, updates `published_at` in the tracked entry.
+    /// Returns `DhtOutdatedRecord` if a newer record already exists on the DHT.
+    /// Returns `RecordInvalid` if `record_name` is not found in the tracked list.
+    pub fn republish(&self, record_name: &str) -> Result<(), PktapError> {
+        // Find and clone the tracked entry so we don't hold the lock during publish.
+        let (seed, data, ttl_secs, is_public) = {
+            let tracked = self.tracked.lock().expect("tracked mutex poisoned");
+            let rec = tracked
+                .iter()
+                .find(|r| r.record_name == record_name)
+                .ok_or(PktapError::RecordInvalid)?;
+            (rec.seed, rec.data.clone(), rec.ttl_secs, rec.is_public)
+        };
+
+        let ttl = if is_public { PUBLIC_RECORD_TTL } else { ttl_secs };
+        let (_, signed_packet) = build_signed_packet(&seed, record_name, &data, ttl)?;
+
+        publish_packet(&self.inner, &signed_packet)?;
+
+        // Update published_at on success.
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        let mut tracked = self.tracked.lock().expect("tracked mutex poisoned");
+        if let Some(rec) = tracked.iter_mut().find(|r| r.record_name == record_name) {
+            rec.published_at = now;
+        }
+
+        Ok(())
+    }
+
     // ── Private helpers ──────────────────────────────────────────────────────
 
     /// Enqueues a signed packet for later retry, starting with a 1-second delay.
@@ -244,6 +355,44 @@ impl DhtClient {
             .lock()
             .expect("queue mutex poisoned")
             .push_back(item);
+    }
+
+    /// Stores a published record in the tracked list for TTL-based republishing.
+    ///
+    /// If a record with the same `record_name` already exists, it is replaced
+    /// (updated `published_at`).
+    fn track_record(
+        &self,
+        seed: &[u8; 32],
+        record_name: &str,
+        data: &[u8],
+        ttl_secs: u32,
+        is_public: bool,
+    ) {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+
+        let mut tracked = self.tracked.lock().expect("tracked mutex poisoned");
+
+        // Replace existing entry for the same record_name if present.
+        if let Some(existing) = tracked.iter_mut().find(|r| r.record_name == record_name) {
+            existing.seed = *seed;
+            existing.data = data.to_vec();
+            existing.ttl_secs = ttl_secs;
+            existing.published_at = now;
+            existing.is_public = is_public;
+        } else {
+            tracked.push(TrackedRecord {
+                seed: *seed,
+                record_name: record_name.to_string(),
+                data: data.to_vec(),
+                ttl_secs,
+                published_at: now,
+                is_public,
+            });
+        }
     }
 }
 
@@ -736,5 +885,124 @@ mod tests {
                 "first queued item must match seed_a (FIFO ordering)"
             );
         }
+    }
+
+    // ── Public mode + TTL tracking + republish tests ──────────────────────────
+
+    /// Public record publish/resolve round-trip with PUBLIC_RECORD_TTL.
+    #[test]
+    fn test_public_publish_resolve() {
+        let testnet = Testnet::new(10);
+        let client_a = make_client(&testnet);
+        let client_b = make_client(&testnet);
+
+        let seed = [0x88u8; 32];
+        let record_name = "_pktap._profile.pubtest";
+        let plaintext = b"Alice Liddell|alice@example.com";
+
+        let public_key = client_a
+            .publish_public(&seed, record_name, plaintext)
+            .expect("publish_public must succeed");
+
+        thread::sleep(Duration::from_millis(500));
+
+        let resolved = client_b
+            .resolve_public(&public_key, record_name)
+            .expect("resolve_public must succeed")
+            .expect("resolved data must be present");
+
+        assert_eq!(
+            resolved, plaintext,
+            "resolved plaintext must match published data"
+        );
+
+        // Verify TTL in the signed packet.
+        let kp = Keypair::from_secret_key(&seed);
+        let (_, sp) =
+            build_signed_packet(&seed, record_name, plaintext, PUBLIC_RECORD_TTL).unwrap();
+        let ttl = sp.packet().answers.first().unwrap().ttl;
+        assert_eq!(ttl, PUBLIC_RECORD_TTL, "public record TTL must be 604800");
+
+        let _ = kp;
+        let _ = public_key;
+    }
+
+    /// get_records_expiring_before returns records past their TTL window.
+    #[test]
+    fn test_get_records_expiring_before() {
+        let testnet = Testnet::new(10);
+        let client = make_client(&testnet);
+
+        let seed = [0x99u8; 32];
+        let record_name = "_pktap._share.expirytest";
+
+        client
+            .publish_encrypted(&seed, record_name, b"expiry payload")
+            .expect("publish must succeed");
+
+        assert_eq!(client.tracked_count(), 1, "one record should be tracked");
+
+        // Query with a future timestamp far in the future — should return the record.
+        let far_future = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+            + PRIVATE_RECORD_TTL as u64
+            + 3600; // published_at + ttl + 1h => clearly expired
+
+        let expiring = client.get_records_expiring_before(far_future);
+        assert!(
+            expiring.contains(&record_name.to_string()),
+            "record should appear as expiring before far_future, got: {:?}",
+            expiring
+        );
+
+        // Query with the current timestamp — record is fresh, should NOT appear.
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let not_expiring = client.get_records_expiring_before(now);
+        assert!(
+            !not_expiring.contains(&record_name.to_string()),
+            "fresh record must not appear as expiring, got: {:?}",
+            not_expiring
+        );
+    }
+
+    /// republish re-publishes the tracked record with a new BEP-44 sequence number.
+    #[test]
+    fn test_republish() {
+        let testnet = Testnet::new(10);
+        let client_a = make_client(&testnet);
+        let client_b = make_client(&testnet);
+
+        let seed = [0xAAu8; 32];
+        let record_name = "_pktap._share.republishtest";
+        let data = b"republish payload";
+
+        let public_key = client_a
+            .publish_encrypted(&seed, record_name, data)
+            .expect("initial publish must succeed");
+
+        thread::sleep(Duration::from_millis(2));
+
+        // Republish — should succeed with a newer timestamp.
+        client_a
+            .republish(record_name)
+            .expect("republish must succeed");
+
+        thread::sleep(Duration::from_millis(500));
+
+        // Record must still be resolvable after republish.
+        let resolved = client_b
+            .resolve_encrypted(&public_key, record_name)
+            .expect("resolve after republish must succeed")
+            .expect("record must be present after republish");
+
+        assert_eq!(
+            resolved, data,
+            "resolved data must match original after republish"
+        );
     }
 }
