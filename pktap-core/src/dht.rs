@@ -15,6 +15,10 @@ use pkarr::{
     Keypair, PkarrClient, PublicKey, SignedPacket,
 };
 
+use std::collections::VecDeque;
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
+
 use crate::error::PktapError;
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -31,12 +35,29 @@ pub const PUBLIC_RECORD_TTL: u32 = 604_800;
 /// + TXT length-prefix bytes) = ~898. Using 850 as a conservative safe limit.
 pub const MAX_CIPHERTEXT_LEN: usize = 850;
 
+// ── Offline queue structs ────────────────────────────────────────────────────
+
+/// A record waiting to be published when connectivity is restored.
+struct PendingPublish {
+    /// The signed packet to publish.
+    signed_packet: SignedPacket,
+    /// When this item should next be attempted.
+    next_attempt: Instant,
+    /// How many times this item has already failed (used for backoff calculation).
+    attempt_count: u32,
+}
+
 // ── DhtClient ───────────────────────────────────────────────────────────────
 
 /// Wraps `pkarr::PkarrClient` and provides PKTap-specific publish/resolve
 /// for both private (encrypted) and public (plaintext) contact records.
+///
+/// Includes an offline queue that enqueues records on network failure and
+/// retries them with exponential backoff (capped at 60 seconds).
 pub struct DhtClient {
     inner: PkarrClient,
+    /// Offline publish queue. Items are retried with exponential backoff.
+    queue: Mutex<VecDeque<PendingPublish>>,
 }
 
 impl DhtClient {
@@ -46,7 +67,10 @@ impl DhtClient {
         let client = PkarrClient::builder()
             .build()
             .map_err(|_| PktapError::DhtPublishFailed)?;
-        Ok(Self { inner: client })
+        Ok(Self {
+            inner: client,
+            queue: Mutex::new(VecDeque::new()),
+        })
     }
 
     /// Creates a `DhtClient` using custom bootstrap nodes.
@@ -63,7 +87,10 @@ impl DhtClient {
             })
             .build()
             .map_err(|_| PktapError::DhtPublishFailed)?;
-        Ok(Self { inner: client })
+        Ok(Self {
+            inner: client,
+            queue: Mutex::new(VecDeque::new()),
+        })
     }
 
     /// Validates `ciphertext` size, builds a signed DNS packet from
@@ -72,10 +99,13 @@ impl DhtClient {
     /// TXT record with `PRIVATE_RECORD_TTL`.
     ///
     /// Returns the keypair's public key (the DHT address) on success.
+    /// Returns `DhtPublishQueued` if the network is unavailable and the record
+    /// was enqueued for later retry.
     ///
     /// # Errors
     /// - `PktapError::RecordTooLarge` if `ciphertext.len() > MAX_CIPHERTEXT_LEN`
     /// - `PktapError::DhtOutdatedRecord` if a newer record already exists
+    /// - `PktapError::DhtPublishQueued` if offline and record was queued
     /// - `PktapError::DhtPublishFailed` for any other network error
     pub fn publish_encrypted(
         &self,
@@ -89,8 +119,14 @@ impl DhtClient {
         let (keypair, signed_packet) =
             build_signed_packet(hkdf_derived_seed, record_name, ciphertext, PRIVATE_RECORD_TTL)?;
 
-        publish_packet(&self.inner, &signed_packet)?;
-        Ok(keypair.public_key())
+        match publish_packet(&self.inner, &signed_packet) {
+            Ok(()) => Ok(keypair.public_key()),
+            Err(PktapError::DhtPublishFailed) => {
+                self.enqueue(signed_packet);
+                Err(PktapError::DhtPublishQueued)
+            }
+            Err(e) => Err(e),
+        }
     }
 
     /// Resolves the TXT record stored at `signer_public_key` on the DHT and
@@ -111,6 +147,7 @@ impl DhtClient {
     /// does not enforce the ciphertext-size limit (plaintext may be smaller).
     ///
     /// Returns the keypair's public key (the DHT address) on success.
+    /// Returns `DhtPublishQueued` if offline and record was enqueued.
     pub fn publish_public(
         &self,
         profile_seed: &[u8; 32],
@@ -123,8 +160,14 @@ impl DhtClient {
         let (keypair, signed_packet) =
             build_signed_packet(profile_seed, record_name, plaintext, PUBLIC_RECORD_TTL)?;
 
-        publish_packet(&self.inner, &signed_packet)?;
-        Ok(keypair.public_key())
+        match publish_packet(&self.inner, &signed_packet) {
+            Ok(()) => Ok(keypair.public_key()),
+            Err(PktapError::DhtPublishFailed) => {
+                self.enqueue(signed_packet);
+                Err(PktapError::DhtPublishQueued)
+            }
+            Err(e) => Err(e),
+        }
     }
 
     /// Resolves the TXT record stored at `signer_public_key` and returns the
@@ -138,6 +181,69 @@ impl DhtClient {
         record_name: &str,
     ) -> Result<Option<Vec<u8>>, PktapError> {
         resolve_bytes(&self.inner, signer_public_key, record_name)
+    }
+
+    // ── Offline queue API ────────────────────────────────────────────────────
+
+    /// Returns the number of items currently waiting in the offline publish queue.
+    pub fn queue_len(&self) -> usize {
+        self.queue.lock().expect("queue mutex poisoned").len()
+    }
+
+    /// Attempts to publish all items in the offline queue whose `next_attempt`
+    /// deadline has passed.
+    ///
+    /// Successfully published items are removed from the queue. Failed items
+    /// have their `attempt_count` incremented and `next_attempt` pushed forward
+    /// using exponential backoff: `delay = min(2^attempt_count, 60)` seconds.
+    ///
+    /// Returns the number of items successfully flushed.
+    pub fn flush_queue(&self) -> usize {
+        let mut queue = self.queue.lock().expect("queue mutex poisoned");
+        let now = Instant::now();
+        let len = queue.len();
+
+        let mut flushed = 0usize;
+        let mut remaining = VecDeque::with_capacity(len);
+
+        for mut item in queue.drain(..) {
+            if item.next_attempt > now {
+                // Not ready yet — keep as-is.
+                remaining.push_back(item);
+                continue;
+            }
+
+            match publish_packet(&self.inner, &item.signed_packet) {
+                Ok(()) => {
+                    flushed += 1;
+                    // Item removed from queue (not pushed to remaining).
+                }
+                Err(_) => {
+                    item.attempt_count += 1;
+                    let delay_secs = (1u64 << item.attempt_count).min(60);
+                    item.next_attempt = Instant::now() + Duration::from_secs(delay_secs);
+                    remaining.push_back(item);
+                }
+            }
+        }
+
+        *queue = remaining;
+        flushed
+    }
+
+    // ── Private helpers ──────────────────────────────────────────────────────
+
+    /// Enqueues a signed packet for later retry, starting with a 1-second delay.
+    fn enqueue(&self, signed_packet: SignedPacket) {
+        let item = PendingPublish {
+            signed_packet,
+            next_attempt: Instant::now() + Duration::from_secs(1),
+            attempt_count: 0,
+        };
+        self.queue
+            .lock()
+            .expect("queue mutex poisoned")
+            .push_back(item);
     }
 }
 
@@ -313,6 +419,12 @@ mod tests {
         DhtClient::with_bootstrap(testnet.bootstrap.clone()).expect("client creation failed")
     }
 
+    /// Creates a DhtClient pointed at an unreachable bootstrap to simulate offline.
+    fn make_offline_client() -> DhtClient {
+        DhtClient::with_bootstrap(vec!["127.0.0.1:1".to_string()])
+            .expect("offline client creation failed")
+    }
+
     // ── Unit tests (no network) ───────────────────────────────────────────────
 
     /// PktapError::RecordTooLarge is returned when ciphertext exceeds MAX_CIPHERTEXT_LEN.
@@ -476,5 +588,153 @@ mod tests {
             pk2.as_bytes(),
             "same seed produces same DHT address"
         );
+    }
+
+    // ── Offline queue tests ───────────────────────────────────────────────────
+
+    /// When publish fails (unreachable bootstrap), the record is enqueued —
+    /// queue_len() returns 1 and DhtPublishQueued is returned.
+    #[test]
+    fn test_offline_queue_on_failure() {
+        let client = make_offline_client();
+        let seed = [0x22u8; 32];
+
+        assert_eq!(client.queue_len(), 0, "queue must be empty initially");
+
+        let result = client.publish_encrypted(&seed, "_pktap._share.offline", b"hello");
+        assert!(
+            matches!(result, Err(PktapError::DhtPublishQueued)),
+            "expected DhtPublishQueued when offline, got {:?}",
+            result
+        );
+        assert_eq!(client.queue_len(), 1, "queue must contain 1 item after failed publish");
+    }
+
+    /// Backoff timing: after 3 failed attempts, next_attempt delay >= 4 seconds.
+    ///
+    /// Backoff formula: delay = min(2^attempt_count, 60).
+    /// attempt_count 0 -> 1s, 1 -> 2s, 2 -> 4s, 3 -> 8s, ...
+    #[test]
+    fn test_queue_backoff_timing() {
+        let client = make_offline_client();
+        let seed = [0x33u8; 32];
+
+        // Enqueue an item (attempt_count starts at 0).
+        client
+            .publish_encrypted(&seed, "_pktap._share.backoff", b"payload")
+            .expect_err("expected DhtPublishQueued");
+
+        // Manually inspect the queue state by checking next_attempt.
+        // We peek at the first item's next_attempt duration from now.
+        {
+            let queue = client.queue.lock().unwrap();
+            let item = queue.front().expect("queue must have one item");
+            // initial next_attempt was set to now + 1s
+            let remaining = item.next_attempt.saturating_duration_since(Instant::now());
+            assert!(
+                remaining <= Duration::from_secs(1),
+                "initial delay should be <= 1s from now, got {:?}",
+                remaining
+            );
+        }
+
+        // Simulate 3 flush failures by resetting next_attempt to the past and calling flush.
+        // After each flush failure, attempt_count is incremented and delay increases.
+        for _ in 0..3 {
+            {
+                let mut queue = client.queue.lock().unwrap();
+                if let Some(item) = queue.front_mut() {
+                    item.next_attempt = Instant::now() - Duration::from_millis(1);
+                }
+            }
+            client.flush_queue();
+        }
+
+        // After 3 failures: attempt_count = 3, delay = min(2^3, 60) = 8 seconds.
+        {
+            let queue = client.queue.lock().unwrap();
+            let item = queue.front().expect("item still in queue");
+            let remaining = item.next_attempt.saturating_duration_since(Instant::now());
+            assert!(
+                remaining >= Duration::from_secs(4),
+                "after 3 failures, delay should be >= 4s (got {:?}); backoff formula: 2^attempt_count",
+                remaining
+            );
+        }
+    }
+
+    /// Backoff cap: after 10 failed attempts, delay is capped at 60 seconds.
+    #[test]
+    fn test_queue_backoff_cap() {
+        let client = make_offline_client();
+        let seed = [0x44u8; 32];
+
+        client
+            .publish_encrypted(&seed, "_pktap._share.backoffcap", b"payload")
+            .expect_err("expected DhtPublishQueued");
+
+        // Simulate 10 flush failures.
+        for _ in 0..10 {
+            {
+                let mut queue = client.queue.lock().unwrap();
+                if let Some(item) = queue.front_mut() {
+                    item.next_attempt = Instant::now() - Duration::from_millis(1);
+                }
+            }
+            client.flush_queue();
+        }
+
+        // After 10 failures: attempt_count = 10, but delay capped at 60s.
+        {
+            let queue = client.queue.lock().unwrap();
+            let item = queue.front().expect("item still in queue");
+            let remaining = item.next_attempt.saturating_duration_since(Instant::now());
+            assert!(
+                remaining <= Duration::from_secs(61),
+                "delay must be capped at 60s, got {:?}",
+                remaining
+            );
+            assert!(
+                remaining >= Duration::from_secs(58),
+                "delay after 10 failures should be close to 60s, got {:?}",
+                remaining
+            );
+        }
+    }
+
+    /// FIFO ordering — first enqueued is first attempted on flush.
+    #[test]
+    fn test_queue_ordering() {
+        let client = make_offline_client();
+
+        // Enqueue three items in order.
+        let seed_a = [0x55u8; 32];
+        let seed_b = [0x66u8; 32];
+        let seed_c = [0x77u8; 32];
+
+        client
+            .publish_encrypted(&seed_a, "_pktap._share.ordering1", b"first")
+            .expect_err("expected DhtPublishQueued");
+        client
+            .publish_encrypted(&seed_b, "_pktap._share.ordering2", b"second")
+            .expect_err("expected DhtPublishQueued");
+        client
+            .publish_encrypted(&seed_c, "_pktap._share.ordering3", b"third")
+            .expect_err("expected DhtPublishQueued");
+
+        assert_eq!(client.queue_len(), 3, "queue must have 3 items");
+
+        // Verify FIFO by checking that the first item in the queue was derived from seed_a.
+        {
+            let queue = client.queue.lock().unwrap();
+            let first = queue.front().expect("first item");
+            // The public key in the signed packet should match seed_a's keypair.
+            let kp_a = Keypair::from_secret_key(&seed_a);
+            assert_eq!(
+                first.signed_packet.public_key().as_bytes(),
+                kp_a.public_key().as_bytes(),
+                "first queued item must match seed_a (FIFO ordering)"
+            );
+        }
     }
 }
