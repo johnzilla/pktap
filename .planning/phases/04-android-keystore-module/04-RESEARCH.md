@@ -558,22 +558,25 @@ NavHost(navController, startDestination = if (hasSeed && acknowledged) Main else
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **EncryptedSharedPreferences vs. direct Keystore pattern**
    - What we know: security-crypto is deprecated as of June 2025; D-01 explicitly names EncryptedSharedPreferences
    - What's unclear: Whether the developer wants to keep the deprecated dependency or migrate to the direct pattern
    - Recommendation: Planner should present both options with a clear recommendation for Option B (direct), since D-01's intent (seed protected by Keystore AES) is fully satisfied by Option B
+   - **RESOLVED:** Direct Keystore + SharedPreferences (Option B). User approved the change; CONTEXT.md D-01 updated accordingly.
 
 2. **Seed definition (random bytes vs. Ed25519 scalar bytes)**
    - What we know: D-01 says "generate random 32-byte seed"; ffi.rs tests use `signing_key.to_scalar_bytes()` as the seed
    - What's unclear: Whether the "seed" stored in SharedPreferences is truly random (`SecureRandom.nextBytes(32)`) or is an Ed25519 signing key scalar
    - Recommendation: Use `SecureRandom.nextBytes(32)` — a purely random seed passed to Rust, which derives the Ed25519 signing key from it via `SigningKey::from_bytes(&seed)`. This matches D-01 and the FFI round-trip test pattern.
+   - **RESOLVED:** `SecureRandom.nextBytes(32)` — per Plan 01 `SeedRepository` implementation.
 
 3. **Hilt DI — include or defer?**
    - What we know: CLAUDE.md lists Hilt as a supporting library; it's Claude's Discretion for Phase 4
    - What's unclear: Whether adding Hilt in Phase 4 is premature (adds compile-time annotation processing complexity) or worth it for consistency with Phase 6
    - Recommendation: Defer Hilt to Phase 6 (App Integration). Phase 4 has few injection points: `KeystoreManager` as a plain object + `AppViewModel` accessed via `viewModel()`. Manual wiring is simpler and Hilt adds KSP configuration overhead.
+   - **RESOLVED:** Deferred to Phase 6 — Plan 02 uses a manual factory pattern instead.
 
 ---
 
