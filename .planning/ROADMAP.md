@@ -65,8 +65,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — Android project scaffold + cargo-ndk/uniffi-bindgen build pipeline
-- [ ] 03-02-PLAN.md — PktapBridge.kt wrapper + FFI-02 hello-world instrumented test
+- [x] 03-01-PLAN.md — Android project scaffold + cargo-ndk/uniffi-bindgen build pipeline
+- [x] 03-02-PLAN.md — PktapBridge.kt wrapper + FFI-02 hello-world instrumented test
 
 ### Phase 4: Android Keystore Module
 **Goal**: The app generates hardware-backed keys on first launch, seals the HKDF seed in EncryptedSharedPreferences, displays the BIP-39 mnemonic, and handles StrongBox/TEE fallback transparently across all supported device types
@@ -80,8 +80,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — Android project scaffold + cargo-ndk/uniffi-bindgen build pipeline
-- [ ] 03-02-PLAN.md — PktapBridge.kt wrapper + FFI-02 hello-world instrumented test
+- [x] 03-01-PLAN.md — Android project scaffold + cargo-ndk/uniffi-bindgen build pipeline
+- [x] 03-02-PLAN.md — PktapBridge.kt wrapper + FFI-02 hello-world instrumented test
 **UI hint**: yes
 
 ### Phase 5: NFC HCE Module
@@ -96,7 +96,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — Android project scaffold + cargo-ndk/uniffi-bindgen build pipeline
+- [x] 03-01-PLAN.md — Android project scaffold + cargo-ndk/uniffi-bindgen build pipeline
 - [ ] 03-02-PLAN.md — PktapBridge.kt wrapper + FFI-02 hello-world instrumented test
 
 ### Phase 6: App Integration + Core UI
