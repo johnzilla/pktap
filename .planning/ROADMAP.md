@@ -62,7 +62,11 @@ Plans:
   1. `./gradlew assembleDebug` succeeds with the Rust .aar bundled — no manual steps required
   2. A Kotlin Android unit test calls a Rust function via UniFFI bindings and gets back the expected result
   3. ByteArray secrets returned from FFI calls are zeroed (`.fill(0)`) immediately after use in the bridge layer — verifiable by code review and test
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Android project scaffold + cargo-ndk/uniffi-bindgen build pipeline
+- [ ] 03-02-PLAN.md — PktapBridge.kt wrapper + FFI-02 hello-world instrumented test
 
 ### Phase 4: Android Keystore Module
 **Goal**: The app generates hardware-backed keys on first launch, seals the HKDF seed in EncryptedSharedPreferences, displays the BIP-39 mnemonic, and handles StrongBox/TEE fallback transparently across all supported device types
@@ -73,7 +77,11 @@ Plans:
   2. The BIP-39 mnemonic screen displays 12/24 words and cannot be bypassed — it is shown at first launch and the words are never written to a log
   3. The HKDF seed survives an app restart — unseal with the Keystore AES key returns the same 32 bytes
   4. On a device without StrongBox, key generation falls back to TEE silently — no error is shown to the user
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Android project scaffold + cargo-ndk/uniffi-bindgen build pipeline
+- [ ] 03-02-PLAN.md — PktapBridge.kt wrapper + FFI-02 hello-world instrumented test
 **UI hint**: yes
 
 ### Phase 5: NFC HCE Module
@@ -85,7 +93,11 @@ Plans:
   2. The `processCommandApdu()` method contains no crypto calls, no Rust FFI calls, and no network I/O — returns pre-cached payload within 300ms
   3. SELECT AID is handled correctly — NFC routing works on a Samsung device without requiring any manual AID configuration
   4. Post-tap operations (ECDH, encryption, DHT publish) run in a background coroutine that launches after `onDeactivated()`, not inside the APDU handler
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Android project scaffold + cargo-ndk/uniffi-bindgen build pipeline
+- [ ] 03-02-PLAN.md — PktapBridge.kt wrapper + FFI-02 hello-world instrumented test
 
 ### Phase 6: App Integration + Core UI
 **Goal**: A user can complete the full PKTap flow end-to-end: set up a profile, tap phones with another PKTap user, see a decrypted contact preview, save the contact, and view it in a contact list — all encrypted, all without a server
@@ -97,7 +109,11 @@ Plans:
   3. A user can save a received contact, find it in the contact list, see its TTL expiry label, and manually refresh it from DHT
   4. When the DHT publish is queued offline, the app shows a "pending sync" indicator and completes the publish when connectivity returns
   5. NFC errors show an actionable message ("Hold phones back-to-back") — no silent failures
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Android project scaffold + cargo-ndk/uniffi-bindgen build pipeline
+- [ ] 03-02-PLAN.md — PktapBridge.kt wrapper + FFI-02 hello-world instrumented test
 **UI hint**: yes
 
 ### Phase 7: QR Fallback + Public Mode
@@ -109,7 +125,11 @@ Plans:
   2. The QR scan of a non-PKTap code does not expose any contact data — it resolves to a web URL only
   3. A user who opts into Public Mode can have their contact info resolved by any app given their public key, without the two users having tapped first
   4. Public mode records auto-republish before the 7-day TTL expires — user never needs to manually re-publish to stay discoverable
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Android project scaffold + cargo-ndk/uniffi-bindgen build pipeline
+- [ ] 03-02-PLAN.md — PktapBridge.kt wrapper + FFI-02 hello-world instrumented test
 **UI hint**: yes
 
 ## Progress
