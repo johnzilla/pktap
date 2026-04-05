@@ -48,7 +48,11 @@ Plans:
   2. A record exceeding the ~858 usable byte budget is rejected before publish with a descriptive error
   3. BEP-44 sequence numbers are monotonically increasing unix timestamps — a second publish with an older seq is rejected
   4. Offline queuing test: publish is enqueued when DHT is unreachable and completes after connectivity is restored
-**Plans**: TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — DhtClient core: pkarr dependency, error types, encrypted publish/resolve with integration tests
+- [ ] 02-02-PLAN.md — Offline queue with exponential backoff, public mode publish/resolve, TTL tracking and republish API
 
 ### Phase 3: UniFFI Bridge + Android Build
 **Goal**: The Rust pktap-core builds as an .aar, Kotlin bindings are generated and importable, and a hello-world FFI call proves the pipeline before any real crypto is wired through it
@@ -111,12 +115,12 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Rust Crypto Core | 0/3 | Planned | - |
-| 2. Pkarr DHT Integration | 0/TBD | Not started | - |
+| 2. Pkarr DHT Integration | 0/2 | Planned | - |
 | 3. UniFFI Bridge + Android Build | 0/TBD | Not started | - |
 | 4. Android Keystore Module | 0/TBD | Not started | - |
 | 5. NFC HCE Module | 0/TBD | Not started | - |
