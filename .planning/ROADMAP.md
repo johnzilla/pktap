@@ -35,9 +35,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans:** 3 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Workspace setup, error types, key conversion, ECDH+HKDF key derivation
-- [ ] 01-02-PLAN.md — XChaCha20-Poly1305 cipher, Ed25519 signing, DNS record name derivation
-- [ ] 01-03-PLAN.md — Composite FFI functions (ecdh_and_encrypt, decrypt_and_verify) and pipeline integration test
+- [x] 01-01-PLAN.md — Workspace setup, error types, key conversion, ECDH+HKDF key derivation
+- [x] 01-02-PLAN.md — XChaCha20-Poly1305 cipher, Ed25519 signing, DNS record name derivation
+- [x] 01-03-PLAN.md — Composite FFI functions (ecdh_and_encrypt, decrypt_and_verify) and pipeline integration test
 
 ### Phase 2: Pkarr DHT Integration
 **Goal**: The DhtClient Rust module can publish a signed encrypted record to Mainline DHT and resolve it back — the deterministic address derivation, size budget enforcement, offline queuing, and TTL handling all work before any Android code touches them
