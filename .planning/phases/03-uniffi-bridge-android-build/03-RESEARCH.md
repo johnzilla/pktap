@@ -404,7 +404,7 @@ android {
     }
 }
 
-val cargoDir = rootProject.file("../../")   // Path to Cargo.toml workspace root
+val cargoDir = rootProject.file("../")   // Workspace root: rootProject=android/, "../" reaches pktap/
 val jniLibsDir = file("src/main/jniLibs")
 val bindingsOutDir = file("src/main/java")
 
