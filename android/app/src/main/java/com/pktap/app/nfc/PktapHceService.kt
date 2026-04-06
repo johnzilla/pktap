@@ -21,6 +21,12 @@ class PktapHceService : HostApduService() {
         val SW_OK = byteArrayOf(0x90.toByte(), 0x00)
         val SW_UNKNOWN = byteArrayOf(0x6F.toByte(), 0x00)
         val SW_FILE_NOT_FOUND = byteArrayOf(0x6A.toByte(), 0x82.toByte())
+
+        /** EXCHANGE APDU class byte — used by NfcReader to build the exchange command. */
+        const val EXCHANGE_CLA: Byte = 0x90.toByte()
+
+        /** EXCHANGE APDU instruction byte — used by NfcReader to build the exchange command. */
+        const val EXCHANGE_INS: Byte = 0x01
     }
 
     private var selectAidReceived = false

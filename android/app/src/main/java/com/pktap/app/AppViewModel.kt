@@ -7,6 +7,8 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.pktap.app.keystore.SeedRepository
+import com.pktap.app.nfc.NfcPayloadBuilder
+import com.pktap.app.nfc.PktapHceService
 import com.pktap.bridge.PktapBridge
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -50,6 +52,8 @@ class AppViewModel(private val seedRepository: SeedRepository) : ViewModel() {
                 }
                 _publicKeyBytes = pubKey
                 _publicKeyHex.value = pubKey.joinToString("") { "%02x".format(it) }
+                // D-03: Pre-cache NFC payload for HCE service (set once at startup)
+                PktapHceService.cachedPayload = NfcPayloadBuilder.buildNfcPayload(pubKey)
                 Log.d(tag, "Public key derived and cached")
             } catch (e: Exception) {
                 Log.e(tag, "Failed to derive public key: ${e.javaClass.simpleName}")
