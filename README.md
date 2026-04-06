@@ -78,4 +78,4 @@ The Gradle build invokes `cargo-ndk` to cross-compile the Rust library and runs 
 
 ## License
 
-TBD
+[MIT](LICENSE)
