@@ -93,7 +93,11 @@ Plans:
   2. The `processCommandApdu()` method contains no crypto calls, no Rust FFI calls, and no network I/O — returns pre-cached payload within 300ms
   3. SELECT AID is handled correctly — NFC routing works on a Samsung device without requiring any manual AID configuration
   4. Post-tap operations (ECDH, encryption, DHT publish) run in a background coroutine that launches after `onDeactivated()`, not inside the APDU handler
-**Plans**: TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 05-01-PLAN.md -- JVM test infrastructure, NFC payload builder, HCE HostApduService, AID registration
+- [ ] 05-02-PLAN.md -- NFC reader mode, post-tap ViewModel + crypto coroutine, PostTapScreen UI, physical device verification
 
 ### Phase 6: App Integration + Core UI
 **Goal**: A user can complete the full PKTap flow end-to-end: set up a profile, tap phones with another PKTap user, see a decrypted contact preview, save the contact, and view it in a contact list — all encrypted, all without a server
@@ -131,6 +135,6 @@ Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7
 | 2. Pkarr DHT Integration | 2/2 | Complete | - |
 | 3. UniFFI Bridge + Android Build | 2/2 | Complete | - |
 | 4. Android Keystore Module | 0/2 | Planned | - |
-| 5. NFC HCE Module | 0/TBD | Not started | - |
+| 5. NFC HCE Module | 0/2 | Planned | - |
 | 6. App Integration + Core UI | 0/TBD | Not started | - |
 | 7. QR Fallback + Public Mode | 0/TBD | Not started | - |
