@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    AID registration for PKTap HCE service (D-05, NFC-05).
+
+    AID F0504B544150 = hex "PKTAP" (proprietary, 6 bytes).
+    category="other" avoids payment AID conflicts and routes correctly on Samsung/Xiaomi.
+-->
+<host-apdu-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/nfc_service_description"
+    android:requireDeviceUnlock="false">
+    <aid-group
+        android:description="@string/nfc_aid_description"
+        android:category="other">
+        <aid-filter android:name="F0504B544150" />
+    </aid-group>
+</host-apdu-service>
