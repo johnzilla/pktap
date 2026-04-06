@@ -96,8 +96,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 05-01-PLAN.md -- JVM test infrastructure, NFC payload builder, HCE HostApduService, AID registration
-- [ ] 05-02-PLAN.md -- NFC reader mode, post-tap ViewModel + crypto coroutine, PostTapScreen UI, physical device verification
+- [x] 05-01-PLAN.md -- JVM test infrastructure, NFC payload builder, HCE HostApduService, AID registration
+- [x] 05-02-PLAN.md -- NFC reader mode, post-tap ViewModel + crypto coroutine, PostTapScreen UI, physical device verification
 
 ### Phase 6: App Integration + Core UI
 **Goal**: A user can complete the full PKTap flow end-to-end: set up a profile, tap phones with another PKTap user, see a decrypted contact preview, save the contact, and view it in a contact list — all encrypted, all without a server
