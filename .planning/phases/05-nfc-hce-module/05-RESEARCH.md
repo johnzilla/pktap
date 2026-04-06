@@ -629,22 +629,22 @@ fun showNfcDisabledDialog(context: Context) {
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **CRC-16 placement: Rust FFI export vs Kotlin inline**
+1. **CRC-16 placement: Rust FFI export vs Kotlin inline** — RESOLVED
    - What we know: Both are functionally equivalent for the 36-byte payload. Rust crc crate 3.x is specified in CLAUDE.md. Kotlin inline is 6 lines with no new dependency.
-   - What's unclear: Whether the team wants a new `build_nfc_payload` FFI function in `ffi.rs` or prefers keeping Kotlin side as thin as possible.
-   - Recommendation: Use Kotlin inline for this phase. Add `build_nfc_payload` to Rust only if Phase 6 or Phase 7 also need it.
+   - What was unclear: Whether the team wants a new `build_nfc_payload` FFI function in `ffi.rs` or prefers keeping Kotlin side as thin as possible.
+   - **Decision: Kotlin inline (6 lines, no FFI round-trip).** Add `build_nfc_payload` to Rust only if Phase 6 or Phase 7 also need it. Implemented in `NfcPayloadBuilder.crc16Ccitt`.
 
-2. **SharedFlow collection timing: ViewModel init vs LaunchedEffect**
+2. **SharedFlow collection timing: ViewModel init vs LaunchedEffect** — RESOLVED
    - What we know: `AppViewModel.init {}` launches a coroutine collecting from `peerKeyFlow`. If the ViewModel is not yet initialized when a tap occurs (unlikely — ViewModel initializes before the screen renders), the event is dropped due to `replay=0`.
-   - What's unclear: Whether `replay=1` should be used to buffer the most recent peer key until a subscriber connects.
-   - Recommendation: Use `replay=0, extraBufferCapacity=1` — the ViewModel is initialized well before any tap scenario.
+   - What was unclear: Whether `replay=1` should be used to buffer the most recent peer key until a subscriber connects.
+   - **Decision: `replay=0, extraBufferCapacity=1, DROP_OLDEST`.** The ViewModel is initialized well before any tap scenario; DROP_OLDEST means a missed tap requires user retry, no data loss or security impact.
 
-3. **Reader role scope: MainActivity only vs any Activity**
+3. **Reader role scope: MainActivity only vs any Activity** — RESOLVED
    - What we know: `enableReaderMode` is tied to a specific Activity instance and must be balanced with `disableReaderMode` in `onPause`.
-   - What's unclear: Which Activity/screen should own the reader mode registration in Phase 5 (before Phase 6 builds the full flow).
-   - Recommendation: Register in `MainActivity` for Phase 5. Phase 6 can refine the screen that triggers reader mode.
+   - What was unclear: Which Activity/screen should own the reader mode registration in Phase 5 (before Phase 6 builds the full flow).
+   - **Decision: `MainActivity` for Phase 5.** Phase 6 can refine which screen triggers reader mode once the full tap-to-contact flow exists.
 
 ---
 
